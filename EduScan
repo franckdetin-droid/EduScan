@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EduScan AI - L'App Complète</title>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <style>
+        :root { --primary: #2563eb; --secondary: #f97316; --success: #22c55e; --dark: #1e293b; --bg: #f1f5f9; }
+        body { font-family: 'Segoe UI', sans-serif; background: #333; display: flex; justify-content: center; padding: 10px; margin: 0; }
+        .phone { width: 100%; max-width: 380px; background: var(--bg); border: 8px solid #000; border-radius: 40px; overflow-y: auto; height: 95vh; position: relative; }
+        .header { background: var(--primary); color: white; padding: 20px; text-align: center; }
+        .content { padding: 15px; }
+        
+        /* Design des éléments */
+        .card { background: white; padding: 15px; border-radius: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 8px; font-size: 13px; color: var(--dark); }
+        select, textarea { width: 100%; padding: 10px; border-radius: 10px; border: 1px solid #ccc; box-sizing: border-box; font-family: inherit; }
+        
+        /* Boutons */
+        .btn-camera { display: block; background: var(--secondary); color: white; padding: 15px; border-radius: 15px; text-align: center; font-weight: bold; cursor: pointer; margin-bottom: 10px; }
+        .btn-main { width: 100%; padding: 15px; border-radius: 15px; border: none; color: white; font-weight: bold; font-size: 16px; cursor: pointer; }
+        .bg-success { background: var(--success); }
+        .bg-purple { background: #9c27b0; margin-top: 10px; }
+        
+        /* Zones de résultats */
+        #loading { display: none; text-align: center; color: var(--secondary); font-weight: bold; margin: 10px 0; }
+        .result-area { display: none; text-align: center; animation: fadeIn 0.5s; }
+        .note-display { font-size: 50px; font-weight: 900; color: var(--success); margin: 10px 0; }
+        .coach-voice-box { background: #fff9c4; padding: 15px; border-radius: 15px; border-left: 5px solid #fbc02d; font-style: italic; font-size: 14px; text-align: left; }
+        .exo-box { display: none; background: #e1f5fe; border: 2px dashed var(--primary); padding: 15px; border-radius: 15px; margin-top: 15px; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+<div class="phone">
+    <div class="header">
+        <h1>EDUSCAN AI 🧠</h1>
+        <p>Correction & Soutien Scolaire</p>
+    </div>
+
+    <div class="content">
+        <div class="card">
+            <label>Niveau de l'élève :</label>
+            <select id="classe-user">
+                <option value="primaire">Primaire (CI - CM2)</option>
+                <option value="5eme" selected>Collège (6ème - 5ème)</option>
+                <option value="lycee">Lycée (2nde - Terminale)</option>
+            </select>
+        </div>
+
+        <div class="card">
+            <label>1. Corrigé de l'enseignant :</label>
+            <textarea id="box-corrige" rows="2" placeholder="Colle les réponses ici..."></textarea>
+            
+            <label style="margin-top:15px;">2. Scanner la copie :</label>
+            <label for="input-file" class="btn-camera">📷 PRENDRE LA PHOTO</label>
+            <input type="file" id="input-file" accept="image/*" capture="camera" onchange="demarrerIA()">
+            
+            <div id="loading">⏳ L'IA analyse l'écriture...</div>
+            <textarea id="box-copie" rows="3" placeholder="Le texte apparaîtra ici..."></textarea>
+        </div>
+
+        <button class="btn-main bg-success" onclick="corrigerMaintenant()">🎯 LANCER LA CORRECTION</button>
+
+        <div id="resultats" class="card result-area">
+            <p>Ta Note :</p>
+            <div id="val-note" class="note-display">00/20</div>
+            <div class="coach-voice-box" id="feedback-vocal">
+                🎙️ Le coach analyse...
+            </div>
+            <button class="btn-main bg-purple" onclick="genererExo()">💪 VOIR L'EXERCICE DE RATTRAPAGE</button>
+        </div>
+
+        <div id="zone-exo" class="exo-box">
+            <h4 style="margin:0;">🎯 Ton Défi Personnalisé :</h4>
+            <p id="texte-exo" style="font-size:14px; color:#01579b;"></p>
+        </div>
+
+        <p style="text-align:center; font-size:11px; color:#666; padding:20px;">
+            "Un bébé tombe 3000 fois avant de savoir marcher.<br>N'abandonne jamais malgré l'adversité !"
+        </p>
+    </div>
+</div>
+
+<script>
+    // --- FONCTION PARLER (VOIX) ---
+    function parler(message) {
+        window.speechSynthesis.cancel();
+        const voix = new SpeechSynthesisUtterance(message);
+        voix.lang = 'fr-FR';
+        window.speechSynthesis.speak(voix);
+    }
+
+    // --- FONCTION IA SCAN (PHOTO -> TEXTE) ---
+    function demarrerIA() {
+        const file = document.getElementById('input-file').files[0];
+        const loading = document.getElementById('loading');
+        const output = document.getElementById('box-copie');
+
+        if (!file) return;
+
+        loading.style.display = 'block';
+        parler("Analyse de ta copie en cours. Je lis ton écriture, patiente un instant.");
+
+        Tesseract.recognize(file, 'fra').then(({ data: { text } }) => {
+            loading.style.display = 'none';
+            output.value = text;
+            parler("C'est bon ! J'ai fini de lire ta copie. Tu peux cliquer sur corriger.");
+        });
+    }
+
+    // --- FONCTION CORRECTION AUTOMATIQUE ---
+    function corrigerMaintenant() {
+        const copie = document.getElementById('box-copie').value.toLowerCase();
+        const corrige = document.getElementById('box-corrige').value.toLowerCase();
+        
+        if(!copie || !corrige) {
+            alert("Il faut d'abord scanner une photo et remplir le corrigé !");
+            return;
+        }
+
+        const motsCles = corrige.split(/[\s,.]+/).filter(m => m.length > 3);
+        let points = 0;
+        motsCles.forEach(m => { if(copie.includes(m)) points++; });
+
+        let note = Math.round((points / motsCles.length) * 20) || 0;
+        
+        document.getElementById('resultats').style.display = 'block';
+        document.getElementById('val-note').innerText = note + "/20";
+
+        let avis = "";
+        if(note >= 16) avis = "Bravo ! C'est un excellent résultat. Tu as bien compris la leçon.";
+        else if(note >= 10) avis = "C'est la moyenne. Tu as compris l'essentiel mais il manque des détails importants.";
+        else avis = "Ne sois pas triste ! Comme le bébé qui apprend à marcher, chaque erreur te fait grandir. Fais l'exercice pour t'améliorer.";
+
+        document.getElementById('feedback-vocal').innerHTML = "<b>🎙️ Coach Vocal :</b> " + avis;
+        parler("Ta note est de " + note + " sur 20. " + avis);
+    }
+
+    // --- FONCTION GÉNÉRATEUR D'EXERCICES (REMEDIATION) ---
+    function genererExo() {
+        const zone = document.getElementById('zone-exo');
+        const txt = document.getElementById('texte-exo');
+        const classe = document.getElementById('classe-user').value;
+        
+        zone.style.display = 'block';
+        let exercice = "";
+
+        if(classe === "5eme") {
+            exercice = "PCT : Explique la différence entre un circuit en série et un circuit en dérivation. Dessine les deux schémas.";
+        } else if(classe === "lycee") {
+            exercice = "Physique : En utilisant la loi d'Ohm (U=RI), calcule la résistance si la tension est de 12V et l'intensité de 2A.";
+        } else {
+            exercice = "Français : Trouve 5 adjectifs dans ton corrigé et utilise-les dans de nouvelles phrases.";
+        }
+
+        txt.innerText = exercice;
+        parler("Voici ton exercice de rattrapage. Relève le défi !");
+    }
+</script>
+
+</body>
+</html>
